@@ -1,0 +1,92 @@
+﻿@model List<WebClient.Models.StudentViewModel>
+@{
+    ViewData["Title"] = "Quản Lý Sinh Viên";
+}
+
+<div class="row align-items-center mb-4">
+    <div class="col">
+        <h4 class="fw-bold mb-1">Quản Lý Sinh Viên</h4>
+        <p class="text-muted small mb-0">Dữ liệu từ StudentService (Port 5001)</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card-custom p-4">
+            <h6 class="fw-bold text-dark mb-3">Thêm sinh viên mới</h6>
+            <form asp-action="Create" method="post">
+                <div class="mb-3">
+                    <label class="form-label small text-secondary">Mã sinh viên</label>
+                    <input type="text" name="StudentId" class="form-control form-control-sm" placeholder="SV01" required />
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-7">
+                        <label class="form-label small text-secondary">Họ đệm</label>
+                        <input type="text" name="LastName" class="form-control form-control-sm" placeholder="Nguyễn Văn" required />
+                    </div>
+                    <div class="col-5">
+                        <label class="form-label small text-secondary">Tên</label>
+                        <input type="text" name="FirstName" class="form-control form-control-sm" placeholder="An" required />
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small text-secondary">Lớp</label>
+                    <input type="text" name="ClassName" class="form-control form-control-sm" placeholder="K44 CNTT" required />
+                </div>
+                <div class="mb-4">
+                    <label class="form-label small text-secondary">Email</label>
+                    <input type="email" name="Email" class="form-control form-control-sm" placeholder="sv01@example.com" required />
+                </div>
+                <button type="submit" class="btn btn-navy btn-sm w-100 fw-medium py-2">+ Thêm sinh viên</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card-custom">
+            <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+                <h6 class="fw-bold text-dark mb-0">Danh sách sinh viên</h6>
+                <span class="badge bg-light text-secondary border">Tổng: @Model.Count</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-custom table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-3">Mã SV</th>
+                            <th>Họ và Tên</th>
+                            <th>Lớp</th>
+                            <th>Email</th>
+                            <th class="text-end pe-3">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model == null || !Model.Any())
+                        {
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4 small">Chưa có dữ liệu sinh viên</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            foreach (var sv in Model)
+                            {
+                                <tr>
+                                    <td class="ps-3 fw-medium text-dark">@sv.StudentId</td>
+                                    <td>@sv.LastName @sv.FirstName</td>
+                                    <td><span class="badge bg-light text-dark border">@sv.ClassName</span></td>
+                                    <td class="text-muted">@sv.Email</td>
+                                    <td class="text-end pe-3">
+                                        <a asp-action="Edit" asp-route-id="@sv.StudentId" class="btn btn-outline-secondary btn-sm py-0 px-2 me-1" style="font-size: 0.8rem;">Sửa</a>
+                                        <form asp-action="Delete" asp-route-id="@sv.StudentId" method="post" class="d-inline" onsubmit="return confirm('Xác nhận xóa sinh viên này?');">
+                                            <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 0.8rem;">Xóa</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

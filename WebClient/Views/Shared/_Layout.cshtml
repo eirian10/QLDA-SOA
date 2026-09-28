@@ -1,0 +1,156 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Đồ Án Tốt Nghiệp</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <style>
+        :root {
+            --navy-dark: #0f172a;
+            --navy-btn: #1e3a8a;
+            --navy-btn-hover: #172554;
+            --bg-page: #f8fafc;
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+        }
+
+        body {
+            background-color: var(--bg-page);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            color: #334155;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .navbar-navy {
+            background-color: var(--navy-dark);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+            padding: 0.75rem 0;
+        }
+
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.15rem;
+            color: #f8fafc !important;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-link {
+            color: #94a3b8 !important;
+            font-size: 0.92rem;
+            font-weight: 500;
+            padding: 0.5rem 1rem !important;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+            .nav-link:hover {
+                color: #ffffff !important;
+                background-color: rgba(255, 255, 255, 0.08);
+            }
+
+        .card-custom {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+        }
+
+        .btn-navy {
+            background-color: var(--navy-btn);
+            color: #ffffff;
+            border: none;
+            transition: background 0.2s;
+        }
+
+            .btn-navy:hover {
+                background-color: var(--navy-btn-hover);
+                color: #ffffff;
+            }
+
+        .table-custom th {
+            background-color: #f1f5f9;
+            color: #475569;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .table-custom td {
+            vertical-align: middle;
+            font-size: 0.88rem;
+            color: #334155;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        /* Phần thân trang tự giãn nở để đẩy footer xuống đáy */
+        main.main-content {
+            flex: 1 0 auto;
+            padding-bottom: 2rem;
+        }
+
+        /* Footer cố định sát đáy trang */
+        .footer-sticky {
+            flex-shrink: 0;
+            background-color: #ffffff;
+            border-top: 1px solid #e2e8f0;
+            padding: 1rem 0;
+            font-size: 0.82rem;
+            color: #64748b;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-md navbar-navy mb-4">
+            <div class="container">
+                <a class="navbar-brand d-flex align-items-center gap-2" asp-controller="Home" asp-action="Index">
+                    <span>Hệ Thống Đồ Án</span>
+                </a>
+
+                <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+                    <span class="navbar-toggler-icon" style="filter: invert(1);"></span>
+                </button>
+
+                <div class="collapse navbar-collapse" id="mainNav">
+                    <ul class="navbar-nav ms-auto align-items-center gap-1">
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="Home" asp-action="Index">Đăng Ký Đề Tài</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="Student" asp-action="Index">Sinh Viên</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="Topic" asp-action="Index">Đề Tài</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main role="main" class="main-content">
+        <div class="container">
+            @RenderBody()
+        </div>
+    </main>
+
+    <footer class="footer-sticky">
+        <div class="container d-flex justify-content-between align-items-center">
+            <span>Hệ Thống Quản Lý Đồ Án Tốt Nghiệp</span>
+            <span>Kiến trúc Hướng Dịch vụ (SOA)</span>
+        </div>
+    </footer>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

@@ -1,0 +1,91 @@
+﻿@model List<WebClient.Models.TopicViewModel>
+@{
+    ViewData["Title"] = "Quản Lý Đề Tài";
+}
+
+<div class="row align-items-center mb-4">
+    <div class="col">
+        <h4 class="fw-bold mb-1">Quản Lý Đề Tài</h4>
+        <p class="text-muted small mb-0">Dữ liệu từ TopicService (Port 5002)</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card-custom p-4">
+            <h6 class="fw-bold text-dark mb-3">Thêm đề tài mới</h6>
+            <form asp-action="Create" method="post">
+                <div class="mb-3">
+                    <label class="form-label small text-secondary">Mã đề tài</label>
+                    <input type="text" name="TopicId" class="form-control form-control-sm" placeholder="DT01" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small text-secondary">Tên đề tài</label>
+                    <input type="text" name="Title" class="form-control form-control-sm" placeholder="Xây dựng hệ thống SOA" required />
+                </div>
+                <div class="mb-4">
+                    <label class="form-label small text-secondary">Giảng viên hướng dẫn</label>
+                    <input type="text" name="Supervisor" class="form-control form-control-sm" placeholder="TS. Nguyễn Văn A" required />
+                </div>
+                <button type="submit" class="btn btn-navy btn-sm w-100 fw-medium py-2">+ Thêm đề tài</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card-custom">
+            <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+                <h6 class="fw-bold text-dark mb-0">Danh sách đề tài</h6>
+                <span class="badge bg-light text-secondary border">Tổng: @Model.Count</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-custom table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-3">Mã ĐT</th>
+                            <th>Tên đề tài</th>
+                            <th>GVHD</th>
+                            <th>Trạng thái</th>
+                            <th class="text-end pe-3">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model == null || !Model.Any())
+                        {
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4 small">Chưa có dữ liệu đề tài</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            foreach (var dt in Model)
+                            {
+                                <tr>
+                                    <td class="ps-3 fw-medium text-dark">@dt.TopicId</td>
+                                    <td class="fw-medium text-dark">@dt.Title</td>
+                                    <td>@dt.Supervisor</td>
+                                    <td>
+                                        @if (dt.Status == "Available")
+                                        {
+                                            <span class="badge bg-success-subtle text-success">Còn trống</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary-subtle text-secondary">Đã đăng ký</span>
+                                        }
+                                    </td>
+                                    <td class="text-end pe-3">
+                                        <a asp-action="Edit" asp-route-id="@dt.TopicId" class="btn btn-outline-secondary btn-sm py-0 px-2 me-1" style="font-size: 0.8rem;">Sửa</a>
+                                        <form asp-action="Delete" asp-route-id="@dt.TopicId" method="post" class="d-inline" onsubmit="return confirm('Xác nhận xóa đề tài này?');">
+                                            <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 0.8rem;">Xóa</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

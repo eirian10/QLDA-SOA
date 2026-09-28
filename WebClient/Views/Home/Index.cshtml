@@ -1,0 +1,116 @@
+﻿@model List<WebClient.Models.RegistrationViewModel>
+@{
+    ViewData["Title"] = "Đăng Ký Đề Tài";
+    var students = ViewBag.Students as List<WebClient.Models.StudentViewModel> ?? new List<WebClient.Models.StudentViewModel>();
+    var topics = ViewBag.Topics as List<WebClient.Models.TopicViewModel> ?? new List<WebClient.Models.TopicViewModel>();
+}
+
+<div class="row align-items-center mb-4">
+    <div class="col">
+        <h4 class="fw-bold mb-1">Đăng Ký Đề Tài Tốt Nghiệp</h4>
+        <p class="text-muted small mb-0">Hệ thống xử lý đăng ký qua RegistrationService (Port 5003)</p>
+    </div>
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success border-0 shadow-sm alert-dismissible fade show" role="alert">
+        @TempData["Success"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger border-0 shadow-sm alert-dismissible fade show" role="alert">
+        @TempData["Error"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card-custom p-4">
+            <h6 class="fw-bold text-dark mb-3">Tạo phiếu đăng ký mới</h6>
+            <form asp-action="Register" method="post">
+                <div class="mb-3">
+                    <label class="form-label small text-secondary">Sinh viên</label>
+                    <select name="studentId" class="form-select form-select-sm" required>
+                        <option value="">Chọn sinh viên</option>
+                        @foreach (var sv in students)
+                        {
+                            <option value="@sv.StudentId">@sv.StudentId - @sv.LastName @sv.FirstName (@sv.ClassName)</option>
+                        }
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label small text-secondary">Đề tài</label>
+                    <select name="topicId" class="form-select form-select-sm" required>
+                        <option value="">Chọn đề tài</option>
+                        @foreach (var dt in topics)
+                        {
+                            <option value="@dt.TopicId">@dt.TopicId - @dt.Title</option>
+                        }
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-navy btn-sm w-100 fw-medium py-2">Xác nhận đăng ký</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card-custom">
+            <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+                <h6 class="fw-bold text-dark mb-0">Danh sách đăng ký</h6>
+                <span class="badge bg-light text-secondary border">Tổng: @Model.Count</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-custom table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-3">Mã phiếu</th>
+                            <th>Mã SV</th>
+                            <th>Mã đề tài</th>
+                            <th>Trạng thái</th>
+                            <th class="text-end pe-3">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model == null || !Model.Any())
+                        {
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4 small">Chưa có lượt đăng ký nào</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            foreach (var item in Model)
+                            {
+                                <tr>
+                                    <td class="ps-3 fw-medium text-dark">#@item.Id</td>
+                                    <td><span class="badge bg-light text-dark border">@item.StudentId</span></td>
+                                    <td><span class="badge bg-light text-dark border">@item.TopicId</span></td>
+                                    <td>
+                                        @if (item.Status == "Registered" || item.Status == "Approved")
+                                        {
+                                            <span class="badge bg-success-subtle text-success">@item.Status</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning-subtle text-warning">@item.Status</span>
+                                        }
+                                    </td>
+                                    <td class="text-end pe-3">
+                                        <form asp-action="Cancel" asp-route-id="@item.Id" method="post" class="d-inline" onsubmit="return confirm('Hủy phiếu đăng ký này?');">
+                                            <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 0.8rem;">Hủy</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
