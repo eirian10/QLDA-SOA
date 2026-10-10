@@ -18,7 +18,7 @@ namespace StudentService.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Student>>> GetAll()
         {
-            return await _context.Students.OrderBy(s => s.FirstName).ToListAsync();
+            return await _context.Students.OrderBy(s => s.StudentId).ToListAsync();
         }
 
         [HttpGet("{id}")]

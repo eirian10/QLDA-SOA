@@ -45,8 +45,6 @@ namespace TopicService.Controllers
 
             existing.Title = topic.Title;
             existing.Supervisor = topic.Supervisor;
-            existing.Status = topic.Status;
-
             await _context.SaveChangesAsync();
             return NoContent();
         }
@@ -61,5 +59,7 @@ namespace TopicService.Controllers
             await _context.SaveChangesAsync();
             return NoContent();
         }
+
+
     }
 }

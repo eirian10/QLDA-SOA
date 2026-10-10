@@ -21,14 +21,7 @@
                     <label class="form-label small text-secondary">Giảng viên hướng dẫn</label>
                     <input type="text" asp-for="Supervisor" class="form-control form-control-sm" required />
                 </div>
-                <div class="mb-4">
-                    <label class="form-label small text-secondary">Trạng thái</label>
-                    <select asp-for="Status" class="form-select form-select-sm">
-                        <option value="Available">Available (Còn trống)</option>
-                        <option value="Registered">Registered (Đã đăng ký)</option>
-                    </select>
-                </div>
-
+            
                 <div class="d-flex justify-content-between">
                     <a asp-action="Index" class="btn btn-light btn-sm px-3">Hủy</a>
                     <button type="submit" class="btn btn-navy btn-sm px-4">Lưu lại</button>

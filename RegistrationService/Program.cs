@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using RegistrationService.Models;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<RegistrationDbContext>(options =>

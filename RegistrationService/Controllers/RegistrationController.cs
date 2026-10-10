@@ -12,7 +12,6 @@ namespace RegistrationService.Controllers
         private readonly RegistrationDbContext _context;
         private readonly HttpClient _httpClient;
 
-        // Cấu hình URL port của 2 service còn lại
         private const string StudentServiceUrl = "http://localhost:5001/api/student";
         private const string TopicServiceUrl = "http://localhost:5002/api/topic";
 
@@ -28,7 +27,18 @@ namespace RegistrationService.Controllers
             return await _context.Registrations.ToListAsync();
         }
 
-        // Đăng ký đề tài: Kiểm tra hợp lệ qua REST API trước khi lưu
+        // Endpoint trả về danh sách mã đề tài đã có người đăng ký
+        [HttpGet("registered-topic-ids")]
+        public async Task<ActionResult<IEnumerable<string>>> GetRegisteredTopicIds()
+        {
+            var registeredTopicIds = await _context.Registrations
+                .Select(r => r.TopicId)
+                .Distinct()
+                .ToListAsync();
+
+            return Ok(registeredTopicIds);
+        }
+
         [HttpPost]
         public async Task<IActionResult> Register(Registration reg)
         {
@@ -47,10 +57,17 @@ namespace RegistrationService.Controllers
             }
 
             // 3. Kiểm tra xem sinh viên này đã đăng ký đề tài nào chưa
-            bool alreadyRegistered = await _context.Registrations.AnyAsync(r => r.StudentId == reg.StudentId);
-            if (alreadyRegistered)
+            bool studentRegistered = await _context.Registrations.AnyAsync(r => r.StudentId == reg.StudentId);
+            if (studentRegistered)
             {
                 return BadRequest("Student has already registered for a topic.");
+            }
+
+            // 4. Kiểm tra xem đề tài này đã có người khác đăng ký chưa
+            bool topicRegistered = await _context.Registrations.AnyAsync(r => r.TopicId == reg.TopicId);
+            if (topicRegistered)
+            {
+                return BadRequest("This topic has already been registered by another student.");
             }
 
             reg.RegisteredDate = DateTime.Now;

@@ -17,7 +17,7 @@ namespace TopicService.Migrations
                     TopicId = table.Column<string>(type: "TEXT", nullable: false),
                     Title = table.Column<string>(type: "TEXT", nullable: false),
                     Supervisor = table.Column<string>(type: "TEXT", nullable: false),
-                    Status = table.Column<string>(type: "TEXT", nullable: false)
+                    //Status = table.Column<string>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {

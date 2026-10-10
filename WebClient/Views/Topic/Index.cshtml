@@ -6,7 +6,6 @@
 <div class="row align-items-center mb-4">
     <div class="col">
         <h4 class="fw-bold mb-1">Quản Lý Đề Tài</h4>
-        <p class="text-muted small mb-0">Dữ liệu từ TopicService (Port 5002)</p>
     </div>
 </div>
 
@@ -45,7 +44,6 @@
                             <th class="ps-3">Mã ĐT</th>
                             <th>Tên đề tài</th>
                             <th>GVHD</th>
-                            <th>Trạng thái</th>
                             <th class="text-end pe-3">Thao tác</th>
                         </tr>
                     </thead>
@@ -64,16 +62,7 @@
                                     <td class="ps-3 fw-medium text-dark">@dt.TopicId</td>
                                     <td class="fw-medium text-dark">@dt.Title</td>
                                     <td>@dt.Supervisor</td>
-                                    <td>
-                                        @if (dt.Status == "Available")
-                                        {
-                                            <span class="badge bg-success-subtle text-success">Còn trống</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="badge bg-secondary-subtle text-secondary">Đã đăng ký</span>
-                                        }
-                                    </td>
+                                   
                                     <td class="text-end pe-3">
                                         <a asp-action="Edit" asp-route-id="@dt.TopicId" class="btn btn-outline-secondary btn-sm py-0 px-2 me-1" style="font-size: 0.8rem;">Sửa</a>
                                         <form asp-action="Delete" asp-route-id="@dt.TopicId" method="post" class="d-inline" onsubmit="return confirm('Xác nhận xóa đề tài này?');">

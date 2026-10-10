@@ -28,8 +28,16 @@ namespace WebClient.Controllers
                 var students = await _httpClient.GetFromJsonAsync<List<StudentViewModel>>(StudentApi);
                 var topics = await _httpClient.GetFromJsonAsync<List<TopicViewModel>>(TopicApi);
 
+                // Lấy danh sách TopicId đã đăng ký từ danh sách registrations hiện có
+                var registeredTopicIds = registrations.Select(r => r.TopicId).ToHashSet();
+
+                // Lọc chỉ giữ lại đề tài chưa có ai đăng ký
+                var availableTopics = (topics ?? new List<TopicViewModel>())
+                    .Where(t => !registeredTopicIds.Contains(t.TopicId))
+                    .ToList();
+
                 ViewBag.Students = students ?? new List<StudentViewModel>();
-                ViewBag.Topics = topics ?? new List<TopicViewModel>();
+                ViewBag.Topics = availableTopics;
             }
             catch (Exception ex)
             {

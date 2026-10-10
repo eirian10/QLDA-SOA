@@ -1,0 +1,1471 @@
+﻿=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\RegistrationService\Controllers\RegistrationController.cs ===
+using System.Net.Http.Json;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using RegistrationService.Models;
+
+namespace RegistrationService.Controllers
+{
+    [Route("api/[controller]")]
+    [ApiController]
+    public class RegistrationController : ControllerBase
+    {
+        private readonly RegistrationDbContext _context;
+        private readonly HttpClient _httpClient;
+
+        private const string StudentServiceUrl = "http://localhost:5001/api/student";
+        private const string TopicServiceUrl = "http://localhost:5002/api/topic";
+
+        public RegistrationController(RegistrationDbContext context, IHttpClientFactory httpClientFactory)
+        {
+            _context = context;
+            _httpClient = httpClientFactory.CreateClient();
+        }
+
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<Registration>>> GetAll()
+        {
+            return await _context.Registrations.ToListAsync();
+        }
+
+        // Endpoint trả về danh sách mã đề tài đã có người đăng ký
+        [HttpGet("registered-topic-ids")]
+        public async Task<ActionResult<IEnumerable<string>>> GetRegisteredTopicIds()
+        {
+            var registeredTopicIds = await _context.Registrations
+                .Select(r => r.TopicId)
+                .Distinct()
+                .ToListAsync();
+
+            return Ok(registeredTopicIds);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Register(Registration reg)
+        {
+            // 1. Kiểm tra sinh viên có tồn tại bên StudentService không
+            var studentRes = await _httpClient.GetAsync($"{StudentServiceUrl}/{reg.StudentId}");
+            if (!studentRes.IsSuccessStatusCode)
+            {
+                return BadRequest($"Student with ID '{reg.StudentId}' does not exist.");
+            }
+
+            // 2. Kiểm tra đề tài có tồn tại bên TopicService không
+            var topicRes = await _httpClient.GetAsync($"{TopicServiceUrl}/{reg.TopicId}");
+            if (!topicRes.IsSuccessStatusCode)
+            {
+                return BadRequest($"Topic with ID '{reg.TopicId}' does not exist.");
+            }
+
+            // 3. Kiểm tra xem sinh viên này đã đăng ký đề tài nào chưa
+            bool studentRegistered = await _context.Registrations.AnyAsync(r => r.StudentId == reg.StudentId);
+            if (studentRegistered)
+            {
+                return BadRequest("Student has already registered for a topic.");
+            }
+
+            // 4. Kiểm tra xem đề tài này đã có người khác đăng ký chưa
+            bool topicRegistered = await _context.Registrations.AnyAsync(r => r.TopicId == reg.TopicId);
+            if (topicRegistered)
+            {
+                return BadRequest("This topic has already been registered by another student.");
+            }
+
+            reg.RegisteredDate = DateTime.Now;
+            _context.Registrations.Add(reg);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Registration successful!", data = reg });
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> CancelRegistration(int id)
+        {
+            var reg = await _context.Registrations.FindAsync(id);
+            if (reg == null) return NotFound();
+
+            _context.Registrations.Remove(reg);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+    }
+}
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\RegistrationService\Models\Registration.cs ===
+using System.ComponentModel.DataAnnotations;
+
+namespace RegistrationService.Models
+{
+    public class Registration
+    {
+        [Key]
+        public int Id { get; set; }
+        public string StudentId { get; set; } = string.Empty;
+        public string TopicId { get; set; } = string.Empty;
+        public DateTime RegisteredDate { get; set; } = DateTime.Now;
+    }
+}
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\RegistrationService\Models\RegistrationDbContext.cs ===
+using Microsoft.EntityFrameworkCore;
+
+namespace RegistrationService.Models
+{
+    public class RegistrationDbContext : DbContext
+    {
+        public RegistrationDbContext(DbContextOptions<RegistrationDbContext> options) : base(options) { }
+
+        public DbSet<Registration> Registrations { get; set; }
+    }
+}
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\RegistrationService\Models\RegistrationDetailDto.cs ===
+namespace RegistrationService.Models
+{
+    public class RegistrationDetailDto
+    {
+        public int Id { get; set; }
+        public string StudentId { get; set; } = string.Empty;
+        public string StudentName { get; set; } = string.Empty;
+        public string TopicId { get; set; } = string.Empty;
+        public string TopicTitle { get; set; } = string.Empty;
+        public DateTime RegisteredDate { get; set; }
+    }
+}
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\RegistrationService\appsettings.json ===
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*"
+}
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\RegistrationService\Program.cs ===
+using Microsoft.EntityFrameworkCore;
+using RegistrationService.Models;
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddDbContext<RegistrationDbContext>(options =>
+    options.UseSqlite("Data Source=RegistrationDb.db"));
+// Add services to the container.
+
+builder.Services.AddControllers();
+builder.Services.AddHttpClient();
+// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\RegistrationService\WeatherForecast.cs ===
+namespace RegistrationService
+{
+    public class WeatherForecast
+    {
+        public DateOnly Date { get; set; }
+
+        public int TemperatureC { get; set; }
+
+        public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+
+        public string? Summary { get; set; }
+    }
+}
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\StudentService\Controllers\StudentController.cs ===
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using StudentService.Models;
+
+namespace StudentService.Controllers
+{
+    [Route("api/[controller]")]
+    [ApiController]
+    public class StudentController : ControllerBase
+    {
+        private readonly StudentDbContext _context;
+
+        public StudentController(StudentDbContext context)
+        {
+            _context = context;
+        }
+
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<Student>>> GetAll()
+        {
+            return await _context.Students.OrderBy(s => s.FirstName).ToListAsync();
+        }
+
+        [HttpGet("{id}")]
+        public async Task<ActionResult<Student>> GetById(string id)
+        {
+            var student = await _context.Students.FindAsync(id);
+            if (student == null) return NotFound();
+            return student;
+        }
+
+        [HttpPost]
+        public async Task<ActionResult<Student>> Create(Student student)
+        {
+            _context.Students.Add(student);
+            await _context.SaveChangesAsync();
+            return CreatedAtAction(nameof(GetById), new { id = student.StudentId }, student);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(string id, Student student)
+        {
+            var existing = await _context.Students.FindAsync(id);
+            if (existing == null) return NotFound();
+
+            existing.FirstName = student.FirstName;
+            existing.LastName = student.LastName;
+            existing.ClassName = student.ClassName;
+            existing.Email = student.Email;
+
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(string id)
+        {
+            var student = await _context.Students.FindAsync(id);
+            if (student == null) return NotFound();
+
+            _context.Students.Remove(student);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+    }
+}
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\StudentService\Models\Student.cs ===
+using System.ComponentModel.DataAnnotations;
+
+namespace StudentService.Models
+{
+    public class Student
+    {
+        [Key]
+        public string StudentId { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;   // Họ và tên đệm
+        public string FirstName { get; set; } = string.Empty;  // Tên
+        public string ClassName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+    }
+}
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\StudentService\Models\StudentDbContext.cs ===
+using Microsoft.EntityFrameworkCore;
+using StudentService.Models;
+
+namespace StudentService.Models
+{
+    public class StudentDbContext : DbContext
+    {
+        public StudentDbContext(DbContextOptions<StudentDbContext> options) : base(options) { }
+
+        public DbSet<Student> Students { get; set; }
+    }
+}
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\StudentService\appsettings.json ===
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*"
+}
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\StudentService\Program.cs ===
+using Microsoft.EntityFrameworkCore;
+using StudentService.Models;
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddDbContext<StudentDbContext>(options =>
+    options.UseSqlite("Data Source=StudentDb.db"));
+
+// Add services to the container.
+
+builder.Services.AddControllers();
+// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\StudentService\WeatherForecast.cs ===
+namespace StudentService
+{
+    public class WeatherForecast
+    {
+        public DateOnly Date { get; set; }
+
+        public int TemperatureC { get; set; }
+
+        public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+
+        public string? Summary { get; set; }
+    }
+}
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\TopicService\Controllers\TopicController.cs ===
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using TopicService.Models;
+
+namespace TopicService.Controllers
+{
+    [Route("api/[controller]")]
+    [ApiController]
+    public class TopicController : ControllerBase
+    {
+        private readonly TopicDbContext _context;
+
+        public TopicController(TopicDbContext context)
+        {
+            _context = context;
+        }
+
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<Topic>>> GetAll()
+        {
+            return await _context.Topics.ToListAsync();
+        }
+
+        [HttpGet("{id}")]
+        public async Task<ActionResult<Topic>> GetById(string id)
+        {
+            var topic = await _context.Topics.FindAsync(id);
+            if (topic == null) return NotFound();
+            return topic;
+        }
+
+        [HttpPost]
+        public async Task<ActionResult<Topic>> Create(Topic topic)
+        {
+            _context.Topics.Add(topic);
+            await _context.SaveChangesAsync();
+            return CreatedAtAction(nameof(GetById), new { id = topic.TopicId }, topic);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(string id, Topic topic)
+        {
+            var existing = await _context.Topics.FindAsync(id);
+            if (existing == null) return NotFound();
+
+            existing.Title = topic.Title;
+            existing.Supervisor = topic.Supervisor;
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(string id)
+        {
+            var topic = await _context.Topics.FindAsync(id);
+            if (topic == null) return NotFound();
+
+            _context.Topics.Remove(topic);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+
+    }
+}
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\TopicService\Models\Topic.cs ===
+using System.ComponentModel.DataAnnotations;
+
+namespace TopicService.Models
+{
+    public class Topic
+    {
+        [Key]
+        public string TopicId { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string Supervisor { get; set; } = string.Empty;
+    }
+}
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\TopicService\Models\TopicDbContext.cs ===
+using Microsoft.EntityFrameworkCore;
+
+namespace TopicService.Models
+{
+    public class TopicDbContext : DbContext
+    {
+        public TopicDbContext(DbContextOptions<TopicDbContext> options) : base(options) { }
+
+        public DbSet<Topic> Topics { get; set; }
+    }
+}
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\TopicService\appsettings.json ===
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*"
+}
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\TopicService\Program.cs ===
+using Microsoft.EntityFrameworkCore;
+using TopicService.Models;
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddDbContext<TopicDbContext>(options =>
+    options.UseSqlite("Data Source=TopicDb.db"));
+// Add services to the container.
+
+builder.Services.AddControllers();
+// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\TopicService\WeatherForecast.cs ===
+namespace TopicService
+{
+    public class WeatherForecast
+    {
+        public DateOnly Date { get; set; }
+
+        public int TemperatureC { get; set; }
+
+        public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+
+        public string? Summary { get; set; }
+    }
+}
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\WebClient\Controllers\HomeController.cs ===
+using System.Diagnostics;
+using System.Net.Http.Json;
+using Microsoft.AspNetCore.Mvc;
+using WebClient.Models;
+
+namespace WebClient.Controllers
+{
+    public class HomeController : Controller
+    {
+        private readonly HttpClient _httpClient;
+        private const string RegistrationApi = "http://localhost:5003/api/registration";
+        private const string StudentApi = "http://localhost:5001/api/student";
+        private const string TopicApi = "http://localhost:5002/api/topic";
+
+        public HomeController(IHttpClientFactory httpClientFactory)
+        {
+            _httpClient = httpClientFactory.CreateClient();
+        }
+
+        public async Task<IActionResult> Index()
+        {
+            var registrations = new List<RegistrationViewModel>();
+            try
+            {
+                var regList = await _httpClient.GetFromJsonAsync<List<RegistrationViewModel>>(RegistrationApi);
+                if (regList != null) registrations = regList;
+
+                var students = await _httpClient.GetFromJsonAsync<List<StudentViewModel>>(StudentApi);
+                var topics = await _httpClient.GetFromJsonAsync<List<TopicViewModel>>(TopicApi);
+
+                // Lấy danh sách TopicId đã đăng ký từ danh sách registrations hiện có
+                var registeredTopicIds = registrations.Select(r => r.TopicId).ToHashSet();
+
+                // Lọc chỉ giữ lại đề tài chưa có ai đăng ký
+                var availableTopics = (topics ?? new List<TopicViewModel>())
+                    .Where(t => !registeredTopicIds.Contains(t.TopicId))
+                    .ToList();
+
+                ViewBag.Students = students ?? new List<StudentViewModel>();
+                ViewBag.Topics = availableTopics;
+            }
+            catch (Exception ex)
+            {
+                ViewBag.Error = "Lỗi kết nối tới các dịch vụ: " + ex.Message;
+            }
+
+            return View(registrations);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Register(string studentId, string topicId)
+        {
+            var model = new { StudentId = studentId, TopicId = topicId };
+            var response = await _httpClient.PostAsJsonAsync(RegistrationApi, model);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                TempData["Error"] = errorMsg;
+            }
+            else
+            {
+                TempData["Success"] = "Đăng ký đề tài thành công";
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Cancel(int id)
+        {
+            await _httpClient.DeleteAsync($"{RegistrationApi}/{id}");
+            return RedirectToAction(nameof(Index));
+        }
+
+        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+        public IActionResult Error()
+        {
+            return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+        }
+    }
+}
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\WebClient\Controllers\StudentController.cs ===
+using Microsoft.AspNetCore.Mvc;
+using WebClient.Models;
+using System.Text.Json;
+using System.Text;
+
+namespace WebClient.Controllers
+{
+    public class StudentController : Controller
+    {
+        private readonly IHttpClientFactory _clientFactory;
+        private readonly string _baseUrl = "http://localhost:5001/api/student";
+
+        public StudentController(IHttpClientFactory clientFactory)
+        {
+            _clientFactory = clientFactory;
+        }
+
+        public async Task<IActionResult> Index()
+        {
+            var client = _clientFactory.CreateClient();
+            var list = new List<StudentViewModel>();
+
+            var response = await client.GetAsync(_baseUrl);
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                list = JsonSerializer.Deserialize<List<StudentViewModel>>(content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<StudentViewModel>();
+            }
+
+            return View(list);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Create(StudentViewModel model)
+        {
+            var client = _clientFactory.CreateClient();
+            var json = JsonSerializer.Serialize(model);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            await client.PostAsync(_baseUrl, content);
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Edit(string id)
+        {
+            var client = _clientFactory.CreateClient();
+            var response = await client.GetAsync($"{_baseUrl}/{id}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var student = JsonSerializer.Deserialize<StudentViewModel>(content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                return View(student);
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Edit(StudentViewModel model)
+        {
+            var client = _clientFactory.CreateClient();
+            var json = JsonSerializer.Serialize(model);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            await client.PutAsync($"{_baseUrl}/{model.StudentId}", content);
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Delete(string id)
+        {
+            var client = _clientFactory.CreateClient();
+            await client.DeleteAsync($"{_baseUrl}/{id}");
+            return RedirectToAction(nameof(Index));
+        }
+    }
+}
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\WebClient\Controllers\TopicController.cs ===
+using Microsoft.AspNetCore.Mvc;
+using WebClient.Models;
+using System.Text.Json;
+using System.Text;
+
+namespace WebClient.Controllers
+{
+    public class TopicController : Controller
+    {
+        private readonly IHttpClientFactory _clientFactory;
+        private readonly string _baseUrl = "http://localhost:5002/api/topic";
+
+        public TopicController(IHttpClientFactory clientFactory)
+        {
+            _clientFactory = clientFactory;
+        }
+
+        public async Task<IActionResult> Index()
+        {
+            var client = _clientFactory.CreateClient();
+            var list = new List<TopicViewModel>();
+
+            var response = await client.GetAsync(_baseUrl);
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                list = JsonSerializer.Deserialize<List<TopicViewModel>>(content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<TopicViewModel>();
+            }
+
+            return View(list);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Create(TopicViewModel model)
+        {
+            var client = _clientFactory.CreateClient();
+            var json = JsonSerializer.Serialize(model);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            await client.PostAsync(_baseUrl, content);
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Edit(string id)
+        {
+            var client = _clientFactory.CreateClient();
+            var response = await client.GetAsync($"{_baseUrl}/{id}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var topic = JsonSerializer.Deserialize<TopicViewModel>(content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                return View(topic);
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Edit(TopicViewModel model)
+        {
+            var client = _clientFactory.CreateClient();
+            var json = JsonSerializer.Serialize(model);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            await client.PutAsync($"{_baseUrl}/{model.TopicId}", content);
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Delete(string id)
+        {
+            var client = _clientFactory.CreateClient();
+            await client.DeleteAsync($"{_baseUrl}/{id}");
+            return RedirectToAction(nameof(Index));
+        }
+    }
+}
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\WebClient\Models\ErrorViewModel.cs ===
+namespace WebClient.Models
+{
+    public class ErrorViewModel
+    {
+        public string? RequestId { get; set; }
+
+        public bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+    }
+}
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\WebClient\Models\RegistrationViewModel.cs ===
+namespace WebClient.Models
+{
+    public class RegistrationViewModel
+    {
+        public int Id { get; set; }
+        public string StudentId { get; set; } = string.Empty;
+        public string TopicId { get; set; } = string.Empty;
+        public DateTime RegistrationDate { get; set; }
+        public string Status { get; set; } = "Pending";
+    }
+}
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\WebClient\Models\StudentViewModel.cs ===
+namespace WebClient.Models
+{
+    public class StudentViewModel
+    {
+        public string StudentId { get; set; } = string.Empty;
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string ClassName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+    }
+}
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\WebClient\Models\TopicViewModel.cs ===
+namespace WebClient.Models
+{
+    public class TopicViewModel
+    {
+        public string TopicId { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string Supervisor { get; set; } = string.Empty;
+    }
+}
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\WebClient\Views\Home\Index.cshtml ===
+@model List<WebClient.Models.RegistrationViewModel>
+@{
+    ViewData["Title"] = "Đăng Ký Đề Tài";
+    var students = ViewBag.Students as List<WebClient.Models.StudentViewModel> ?? new List<WebClient.Models.StudentViewModel>();
+    var topics = ViewBag.Topics as List<WebClient.Models.TopicViewModel> ?? new List<WebClient.Models.TopicViewModel>();
+}
+
+<div class="row align-items-center mb-4">
+    <div class="col">
+        <h4 class="fw-bold mb-1">Đăng Ký Đề Tài Tốt Nghiệp</h4>
+        <p class="text-muted small mb-0">Hệ thống xử lý đăng ký qua RegistrationService (Port 5003)</p>
+    </div>
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success border-0 shadow-sm alert-dismissible fade show" role="alert">
+        @TempData["Success"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger border-0 shadow-sm alert-dismissible fade show" role="alert">
+        @TempData["Error"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card-custom p-4">
+            <h6 class="fw-bold text-dark mb-3">Tạo phiếu đăng ký mới</h6>
+            <form asp-action="Register" method="post">
+                <div class="mb-3">
+                    <label class="form-label small text-secondary">Sinh viên</label>
+                    <select name="studentId" class="form-select form-select-sm" required>
+                        <option value="">Chọn sinh viên</option>
+                        @foreach (var sv in students)
+                        {
+                            <option value="@sv.StudentId">@sv.StudentId - @sv.LastName @sv.FirstName (@sv.ClassName)</option>
+                        }
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label small text-secondary">Đề tài</label>
+                    <select name="topicId" class="form-select form-select-sm" required>
+                        <option value="">Chọn đề tài</option>
+                        @foreach (var dt in topics)
+                        {
+                            <option value="@dt.TopicId">@dt.TopicId - @dt.Title</option>
+                        }
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-navy btn-sm w-100 fw-medium py-2">Xác nhận đăng ký</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card-custom">
+            <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+                <h6 class="fw-bold text-dark mb-0">Danh sách đăng ký</h6>
+                <span class="badge bg-light text-secondary border">Tổng: @Model.Count</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-custom table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-3">Mã phiếu</th>
+                            <th>Mã SV</th>
+                            <th>Mã đề tài</th>
+                            <th class="text-end pe-3">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model == null || !Model.Any())
+                        {
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4 small">Chưa có lượt đăng ký nào</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            foreach (var item in Model)
+                            {
+                                <tr>
+                                    <td class="ps-3 fw-medium text-dark">#@item.Id</td>
+                                    <td><span class="badge bg-light text-dark border">@item.StudentId</span></td>
+                                    <td><span class="badge bg-light text-dark border">@item.TopicId</span></td>
+                                  
+                                    <td class="text-end pe-3">
+                                        <form asp-action="Cancel" asp-route-id="@item.Id" method="post" class="d-inline" onsubmit="return confirm('Hủy phiếu đăng ký này?');">
+                                            <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 0.8rem;">Hủy</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\WebClient\Views\Home\Privacy.cshtml ===
+@{
+    ViewData["Title"] = "Privacy Policy";
+}
+<h1>@ViewData["Title"]</h1>
+
+<p>Use this page to detail your site's privacy policy.</p>
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\WebClient\Views\Shared\Error.cshtml ===
+@model ErrorViewModel
+@{
+    ViewData["Title"] = "Error";
+}
+
+<h1 class="text-danger">Error.</h1>
+<h2 class="text-danger">An error occurred while processing your request.</h2>
+
+@if (Model.ShowRequestId)
+{
+    <p>
+        <strong>Request ID:</strong> <code>@Model.RequestId</code>
+    </p>
+}
+
+<h3>Development Mode</h3>
+<p>
+    Swapping to <strong>Development</strong> environment will display more detailed information about the error that occurred.
+</p>
+<p>
+    <strong>The Development environment shouldn't be enabled for deployed applications.</strong>
+    It can result in displaying sensitive information from exceptions to end users.
+    For local debugging, enable the <strong>Development</strong> environment by setting the <strong>ASPNETCORE_ENVIRONMENT</strong> environment variable to <strong>Development</strong>
+    and restarting the app.
+</p>
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\WebClient\Views\Shared\_Layout.cshtml ===
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Đồ Án Tốt Nghiệp</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <style>
+        :root {
+            --navy-dark: #0f172a;
+            --navy-btn: #1e3a8a;
+            --navy-btn-hover: #172554;
+            --bg-page: #f8fafc;
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+        }
+
+        body {
+            background-color: var(--bg-page);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            color: #334155;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .navbar-navy {
+            background-color: var(--navy-dark);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+            padding: 0.75rem 0;
+        }
+
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.15rem;
+            color: #f8fafc !important;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-link {
+            color: #94a3b8 !important;
+            font-size: 0.92rem;
+            font-weight: 500;
+            padding: 0.5rem 1rem !important;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+            .nav-link:hover {
+                color: #ffffff !important;
+                background-color: rgba(255, 255, 255, 0.08);
+            }
+
+        .card-custom {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+        }
+
+        .btn-navy {
+            background-color: var(--navy-btn);
+            color: #ffffff;
+            border: none;
+            transition: background 0.2s;
+        }
+
+            .btn-navy:hover {
+                background-color: var(--navy-btn-hover);
+                color: #ffffff;
+            }
+
+        .table-custom th {
+            background-color: #f1f5f9;
+            color: #475569;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .table-custom td {
+            vertical-align: middle;
+            font-size: 0.88rem;
+            color: #334155;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        /* Phần thân trang tự giãn nở để đẩy footer xuống đáy */
+        main.main-content {
+            flex: 1 0 auto;
+            padding-bottom: 2rem;
+        }
+
+        /* Footer cố định sát đáy trang */
+        .footer-sticky {
+            flex-shrink: 0;
+            background-color: #ffffff;
+            border-top: 1px solid #e2e8f0;
+            padding: 1rem 0;
+            font-size: 0.82rem;
+            color: #64748b;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-md navbar-navy mb-4">
+            <div class="container">
+                <a class="navbar-brand d-flex align-items-center gap-2" asp-controller="Home" asp-action="Index">
+                    <span>Hệ Thống Đồ Án</span>
+                </a>
+
+                <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+                    <span class="navbar-toggler-icon" style="filter: invert(1);"></span>
+                </button>
+
+                <div class="collapse navbar-collapse" id="mainNav">
+                    <ul class="navbar-nav ms-auto align-items-center gap-1">
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="Home" asp-action="Index">Đăng Ký Đề Tài</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="Student" asp-action="Index">Sinh Viên</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="Topic" asp-action="Index">Đề Tài</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main role="main" class="main-content">
+        <div class="container">
+            @RenderBody()
+        </div>
+    </main>
+
+    <footer class="footer-sticky">
+        <div class="container d-flex justify-content-between align-items-center">
+            <span>Hệ Thống Quản Lý Đồ Án Tốt Nghiệp</span>
+            <span>Kiến trúc Hướng Dịch vụ (SOA)</span>
+        </div>
+    </footer>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\WebClient\Views\Shared\_ValidationScriptsPartial.cshtml ===
+<script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+<script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\WebClient\Views\Student\Edit.cshtml ===
+@model WebClient.Models.StudentViewModel
+@{
+    ViewData["Title"] = "Chỉnh Sửa Sinh Viên";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card-custom p-4">
+            <h6 class="fw-bold text-dark mb-3">Chỉnh sửa thông tin sinh viên</h6>
+
+            <form asp-action="Edit" method="post">
+                <div class="mb-3">
+                    <label class="form-label small text-secondary">Mã sinh viên</label>
+                    <input type="text" asp-for="StudentId" class="form-control form-control-sm bg-light" readonly />
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-7">
+                        <label class="form-label small text-secondary">Họ đệm</label>
+                        <input type="text" asp-for="LastName" class="form-control form-control-sm" required />
+                    </div>
+                    <div class="col-5">
+                        <label class="form-label small text-secondary">Tên</label>
+                        <input type="text" asp-for="FirstName" class="form-control form-control-sm" required />
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small text-secondary">Lớp</label>
+                    <input type="text" asp-for="ClassName" class="form-control form-control-sm" required />
+                </div>
+                <div class="mb-4">
+                    <label class="form-label small text-secondary">Email</label>
+                    <input type="email" asp-for="Email" class="form-control form-control-sm" required />
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <a asp-action="Index" class="btn btn-light btn-sm px-3">Hủy</a>
+                    <button type="submit" class="btn btn-navy btn-sm px-4">Lưu lại</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\WebClient\Views\Student\Index.cshtml ===
+@model List<WebClient.Models.StudentViewModel>
+@{
+    ViewData["Title"] = "Quản Lý Sinh Viên";
+}
+
+<div class="row align-items-center mb-4">
+    <div class="col">
+        <h4 class="fw-bold mb-1">Quản Lý Sinh Viên</h4>
+        <p class="text-muted small mb-0">Dữ liệu từ StudentService (Port 5001)</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card-custom p-4">
+            <h6 class="fw-bold text-dark mb-3">Thêm sinh viên mới</h6>
+            <form asp-action="Create" method="post">
+                <div class="mb-3">
+                    <label class="form-label small text-secondary">Mã sinh viên</label>
+                    <input type="text" name="StudentId" class="form-control form-control-sm" placeholder="SV01" required />
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-7">
+                        <label class="form-label small text-secondary">Họ đệm</label>
+                        <input type="text" name="LastName" class="form-control form-control-sm" placeholder="Nguyễn Văn" required />
+                    </div>
+                    <div class="col-5">
+                        <label class="form-label small text-secondary">Tên</label>
+                        <input type="text" name="FirstName" class="form-control form-control-sm" placeholder="An" required />
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small text-secondary">Lớp</label>
+                    <input type="text" name="ClassName" class="form-control form-control-sm" placeholder="K44 CNTT" required />
+                </div>
+                <div class="mb-4">
+                    <label class="form-label small text-secondary">Email</label>
+                    <input type="email" name="Email" class="form-control form-control-sm" placeholder="sv01@example.com" required />
+                </div>
+                <button type="submit" class="btn btn-navy btn-sm w-100 fw-medium py-2">+ Thêm sinh viên</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card-custom">
+            <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+                <h6 class="fw-bold text-dark mb-0">Danh sách sinh viên</h6>
+                <span class="badge bg-light text-secondary border">Tổng: @Model.Count</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-custom table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-3">Mã SV</th>
+                            <th>Họ và Tên</th>
+                            <th>Lớp</th>
+                            <th>Email</th>
+                            <th class="text-end pe-3">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model == null || !Model.Any())
+                        {
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4 small">Chưa có dữ liệu sinh viên</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            foreach (var sv in Model)
+                            {
+                                <tr>
+                                    <td class="ps-3 fw-medium text-dark">@sv.StudentId</td>
+                                    <td>@sv.LastName @sv.FirstName</td>
+                                    <td><span class="badge bg-light text-dark border">@sv.ClassName</span></td>
+                                    <td class="text-muted">@sv.Email</td>
+                                    <td class="text-end pe-3">
+                                        <a asp-action="Edit" asp-route-id="@sv.StudentId" class="btn btn-outline-secondary btn-sm py-0 px-2 me-1" style="font-size: 0.8rem;">Sửa</a>
+                                        <form asp-action="Delete" asp-route-id="@sv.StudentId" method="post" class="d-inline" onsubmit="return confirm('Xác nhận xóa sinh viên này?');">
+                                            <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 0.8rem;">Xóa</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\WebClient\Views\Topic\Edit.cshtml ===
+@model WebClient.Models.TopicViewModel
+@{
+    ViewData["Title"] = "Chỉnh Sửa Đề Tài";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card-custom p-4">
+            <h6 class="fw-bold text-dark mb-3">Chỉnh sửa thông tin đề tài</h6>
+
+            <form asp-action="Edit" method="post">
+                <div class="mb-3">
+                    <label class="form-label small text-secondary">Mã đề tài</label>
+                    <input type="text" asp-for="TopicId" class="form-control form-control-sm bg-light" readonly />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small text-secondary">Tên đề tài</label>
+                    <input type="text" asp-for="Title" class="form-control form-control-sm" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small text-secondary">Giảng viên hướng dẫn</label>
+                    <input type="text" asp-for="Supervisor" class="form-control form-control-sm" required />
+                </div>
+            
+                <div class="d-flex justify-content-between">
+                    <a asp-action="Index" class="btn btn-light btn-sm px-3">Hủy</a>
+                    <button type="submit" class="btn btn-navy btn-sm px-4">Lưu lại</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\WebClient\Views\Topic\Index.cshtml ===
+@model List<WebClient.Models.TopicViewModel>
+@{
+    ViewData["Title"] = "Quản Lý Đề Tài";
+}
+
+<div class="row align-items-center mb-4">
+    <div class="col">
+        <h4 class="fw-bold mb-1">Quản Lý Đề Tài</h4>
+        <p class="text-muted small mb-0">Dữ liệu từ TopicService (Port 5002)</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card-custom p-4">
+            <h6 class="fw-bold text-dark mb-3">Thêm đề tài mới</h6>
+            <form asp-action="Create" method="post">
+                <div class="mb-3">
+                    <label class="form-label small text-secondary">Mã đề tài</label>
+                    <input type="text" name="TopicId" class="form-control form-control-sm" placeholder="DT01" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small text-secondary">Tên đề tài</label>
+                    <input type="text" name="Title" class="form-control form-control-sm" placeholder="Xây dựng hệ thống SOA" required />
+                </div>
+                <div class="mb-4">
+                    <label class="form-label small text-secondary">Giảng viên hướng dẫn</label>
+                    <input type="text" name="Supervisor" class="form-control form-control-sm" placeholder="TS. Nguyễn Văn A" required />
+                </div>
+                <button type="submit" class="btn btn-navy btn-sm w-100 fw-medium py-2">+ Thêm đề tài</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card-custom">
+            <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+                <h6 class="fw-bold text-dark mb-0">Danh sách đề tài</h6>
+                <span class="badge bg-light text-secondary border">Tổng: @Model.Count</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-custom table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-3">Mã ĐT</th>
+                            <th>Tên đề tài</th>
+                            <th>GVHD</th>
+                            <th class="text-end pe-3">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model == null || !Model.Any())
+                        {
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4 small">Chưa có dữ liệu đề tài</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            foreach (var dt in Model)
+                            {
+                                <tr>
+                                    <td class="ps-3 fw-medium text-dark">@dt.TopicId</td>
+                                    <td class="fw-medium text-dark">@dt.Title</td>
+                                    <td>@dt.Supervisor</td>
+                                   
+                                    <td class="text-end pe-3">
+                                        <a asp-action="Edit" asp-route-id="@dt.TopicId" class="btn btn-outline-secondary btn-sm py-0 px-2 me-1" style="font-size: 0.8rem;">Sửa</a>
+                                        <form asp-action="Delete" asp-route-id="@dt.TopicId" method="post" class="d-inline" onsubmit="return confirm('Xác nhận xóa đề tài này?');">
+                                            <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 0.8rem;">Xóa</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\WebClient\Views\_ViewImports.cshtml ===
+@using WebClient
+@using WebClient.Models
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\WebClient\Views\_ViewStart.cshtml ===
+@{
+    Layout = "_Layout";
+}
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\WebClient\appsettings.json ===
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*"
+}
+
+
+
+=== FILE: C:\Users\ASUS\Documents\.Net\QLDoAnSOA\WebClient\Program.cs ===
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddControllersWithViews();
+builder.Services.AddHttpClient();
+
+var app = builder.Build();
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Home/Error");
+    app.UseHsts();
+}
+
+app.UseStaticFiles();
+
+app.UseRouting();
+
+app.UseAuthorization();
+
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Home}/{action=Index}/{id?}");
+
+app.Run();
+
+
+
